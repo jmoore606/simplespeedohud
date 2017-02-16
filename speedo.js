@@ -1,72 +1,32 @@
-// make the canvas
-var sw = screen.width;
-var sh = screen.height;
-var speedoDiv = document.getElementById("speedoCanvasContainer");
-speedoDiv.innerHTML = "<canvas id=\"canvas1\" width=\"" + sw + "px\" height=\"" + sh + "px\">ns =(</canvas>"
+// Jeff Moore, 1/19/2016
+// Speedometer.
 
-// set up the vars
-var gpsInfo = document.getElementById("demo");
-var geocoderObj = new google.maps.Geocoder;
-var geocoderStatus = -1;
-var errorLog = document.getElementById("errorLog");
-var c1 = document.getElementById("canvas1");
-var ctx = c1.getContext("2d");
-var logStr = "";
-var w = c1.width;
-var h = c1.height;
-var posObj;  // make it global by declaring it here
-var viewWidth = window.innerWidth;
-var viewHeight = window.innerHeight;
-
-// Config vars
-var colorScheme = [
-  "#000000", // background color
-  "#FF3300", // main color 1 - shapes, lights
-  "#FF0000", // main color 2 - needle(s)
-  "#BB1100", // sub color 1
-  "#992211", // sub color 2
-];
-/* Linear gradient
-var grd=ctx.createLinearGradient(0,0,170,0);
-grd.addColorStop(0,"black");
-grd.addColorStop(1,"white");
-ctx.fillStyle=grd;
-ctx.fillRect(20,20,150,100);
-
-// Radial gradient
-var grd=ctx.createRadialGradient(75,50,5,90,60,100);
-grd.addColorStop(0,"red");
-grd.addColorStop(1,"white");
-ctx.fillStyle=grd;
-ctx.fillRect(10,10,150,100);
-
-var speedo = [ {
-    "face": [ {
-       "text": [ {
-          "color": colorScheme["text"],
-          "font-face": "Josefin Sans"
-       } ]
-    } ]
-} ];
-*/
-
-// Speedometer
-// note: ctx.arc() angle=0 is at 3 o'clock and goes clockwise from there.
-var mirrorHud = 0;  // show mirror-image
-var drawRefreshRate = 100;
-var textSizeA = 0.25; // percent of screen space
-var textSizeB = 0.15;
-var textSizeC = 0.10;
-var speedocircx = 0.50; //percents of screen space
-var speedocircy = 0.50;
-var speedocircr = 0.8;
-var speedocircaa = 0.35; // beginangle
-var speedocircab = 0.15;// endangle
-var speedocircthickness = 0.1;  // percent of circle radius
-var speedoinnercirc = 0.8; // info circle inside the speedo
-var speedoneedlelength = 0.15; // length of the needle, in percent-of-radius. \|/
-var speedomax = 120; // mph
-var hudCompass = {
+// Configuration variables
+var config_mirrorHud = 0;  // show mirror-image
+var config_fps = 100;
+var config_posRefreshRate = 100; // ms
+var config_geocodeRefreshRate = 15000; // ms
+var config_textSizeA = 0.20; // percent of screen space
+var config_textSizeB = 0.13;
+var config_textSizeC = 0.08;
+var config_textFontA = "Josefin Sans";
+var config_textFontB = "Josefin Sans";
+var config_textFontC = "Josefin Sans";
+var config_speedocircx = 0.50; //percents of screen space
+var config_speedocircy = 0.40;
+var config_speedocircr = 0.6;
+var config_speedocircaa = 0.35; // beginangle
+var config_speedocircab = 0.15;// endangle
+var config_speedocircthickness = 0.1;  // percent of circle radius
+var config_speedoinnercirc = 0.8; // info circle inside the speedo
+var config_speedoneedlelength = 0.15; // length of the needle, in percent-of-radius. \|/
+var config_speedomax = 120; // mph
+var config_subInfoAx = 0.50; // can be street name, city name, etc
+var config_subInfoAy = 0.85;
+var config_subInfoAFont = "Josefin Sans";
+var config_subInfoASize = 0.08;
+var config_subInfoLineHeight = 0.09;
+var config_hudCompass = {
   "radius": 0.8,  // percent of speedo circle radius
   "arcSize": 0.04, // size of marker arc in percent-of-circle
   "arcThickness": 4,
@@ -74,34 +34,60 @@ var hudCompass = {
   "centerThickness": 15,
   "letterSize": 0.10  // size of marker "N"
 };
-var color = [
-  "#ff5500",
-  "#B80005",
-  "#ff0000",
-  "#331100",
-  "#000000"
+var config_colorScheme = [
+  "#000000", // background color
+  "#FF5500", // main color 1 - shapes, lights
+  "#FF0000", // main color 2 - needle(s)
+  "#BB1100", // sub color 1
+  "#992211", // sub color 2
 ];
-var posOptions = {
+
+/*var config_colorScheme = [
+  "#FFFFFF", // background color
+  "#000000", // main color 1 - shapes, lights
+  "#555555", // main color 2 - needle(s)
+  "#777777", // sub color 1
+  "#992211", // sub color 2
+];*/
+
+var config_posOptions = {
   enableHighAccuracy: true,
   timeout: 5000,
   maximumAge: 0,
   desiredAccuracy: 1, 
-  frequency: 500
+  frequency: config_posRefreshRate
 };
 
-// calc values
-var textSizeA = Math.round( textSizeA*Math.min(w,h) );
-var textSizeB = Math.round( textSizeB*Math.min(w,h) );
-var textSizeC = Math.round( textSizeC*Math.min(w,h) );
-var scx = Math.floor(w*speedocircx);
-var scy = Math.floor(h*speedocircy);
-var scr = Math.floor(Math.min(w,h)*speedocircr*0.5);
-var scaa = Math.PI*2*speedocircaa;
-var scab = Math.PI*2*speedocircab + Math.PI*2;
+// Other global variables
+var viewWidth, viewHeight, w, h;
+var textSizeA, textSizeB, textSizeC;
+var scx, scy, scr, scaa, scab;
+var subInfoASize;
+var logStr = "";
+var prevTouchTime = -1;
+
+// Prepare the elements and variables
+// HTML
+var speedoDiv = document.getElementById("speedoCanvasContainer");
+speedoDiv.innerHTML = "<canvas id=\"canvas1\" width=\"" + screen.width + "px\" height=\"" + screen.height + "px\">ns =(</canvas>"
+var c1 = document.getElementById("canvas1");
+var ctx = c1.getContext("2d");
+var viewWidth = window.innerWidth;
+var viewHeight = window.innerHeight;
+// GPS
+var gpsInfo = document.getElementById("demo");
+var geocoderObj = new google.maps.Geocoder;
+var geocoderStatus = -1;
+var geoWatchPos, geocoderResultsObj, randomSetOfGeocoderResultsObj, randomSetOfGeocoderStatusObj;
+var posObj;
 var priorLat = -1;
 var priorLon = -1;
 var priorHeading = -1;
 var tripMilesA = 0; // learn to save data then make more relevant trips
+var posLat=posLon=posSpeed=posHeading=posAccuracy=posAltitude=posAltitudeAccuracy=posTimeStamp = -1;
+var geoStreetName=geoNeighborhoodName=geoCityName=geoCountyName=geoStateAbbrev=geoZipCode = "";
+var speedStr=posDirection=sub1Str=sub2Str = "---";
+
 
 try {
 
@@ -109,11 +95,11 @@ try {
     // Distance btw 2 points
     function getDistance(lat1,lon1,lat2,lon2) {
       var R = 6371; // Radius of the earth in km
-      var dLat = deg2rad(lat2-lat1);  // deg2rad below
-      var dLon = deg2rad(lon2-lon1); 
+      var dLat = degToRad(lat2-lat1);  // degToRad below
+      var dLon = degToRad(lon2-lon1); 
       var a = 
         Math.sin(dLat/2) * Math.sin(dLat/2) +
-        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+        Math.cos(degToRad(lat1)) * Math.cos(degToRad(lat2)) * 
         Math.sin(dLon/2) * Math.sin(dLon/2)
         ; 
       var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
@@ -121,28 +107,42 @@ try {
       d *= 0.62137119;  // to mi
       return d;
     }
-    function deg2rad(deg) {
-      return deg * (Math.PI/180)
-    }
 
-    // Detect orientation change
-    function getDeviceOrientation() {
+    function degToRad(deg) { return deg * (Math.PI/180) };
+
+
+    // Initialize and size the canvas
+    function initDisplay() {
       //alert(window.orientation);
-      var viewWidth = window.innerWidth;
-      var viewHeight = window.innerHeight;
-      ctx.canvas.width = viewWidth;
-      ctx.canvas.height = viewHeight;
-      var w = c1.width;
-      var h = c1.height;
+      viewWidth = window.innerWidth;
+      viewHeight = window.innerHeight;
+      c1.width = viewWidth;
+      c1.height = viewHeight;
+      ctx.width = viewWidth;
+      ctx.height = viewHeight;
 
-      var scx = Math.floor(w*speedocircx);
-      var scy = Math.floor(h*speedocircy);
-      var scr = Math.floor(Math.min(w,h)*speedocircr*0.5);
+      // calc values
+      w = c1.width;
+      h = c1.height;
+      textSizeA = Math.round( config_textSizeA*Math.min(w,h) );
+      textSizeB = Math.round( config_textSizeB*Math.min(w,h) );
+      textSizeC = Math.round( config_textSizeC*Math.min(w,h) );
+      subInfoASize = Math.round( config_subInfoASize*Math.min(w,h) );
+      scx = Math.floor(w*config_speedocircx);
+      scy = Math.floor(h*config_speedocircy);
+      scr = Math.floor(Math.min(w,h)*config_speedocircr*0.5);
+      scaa = Math.PI*2*config_speedocircaa;
+      scab = Math.PI*2*config_speedocircab + Math.PI*2;
+
+      // flip context horizontally
+      if (config_mirrorHud) { 
+        ctx.scale(-1, 1);
+        ctx.translate(-w, 0);
+      };
     }
-    window.addEventListener("orientationchange", getDeviceOrientation);
+    
 
     // Request fullscreen
-    var prevTouchTime = -1;
     function toggleFullscreen(event) {
       //var touchTime = new Date();
       //var touchMs = touchTime.getTime();
@@ -151,7 +151,7 @@ try {
         // if fullscreen not active, activate it
         if (!document.fullscreenElement &&    // alternative standard method
             !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement ) { 
-          c1.style.visibility = "visible";
+          //c1.style.visibility = "visible";
           if (c1.requestFullscreen) {
             c1.requestFullscreen();
           } else if (c1.msRequestFullscreen) {
@@ -162,7 +162,7 @@ try {
             c1.webkitRequestFullscreen();
           }
         } else {
-          c1.style.visibility = "hidden";
+          //c1.style.visibility = "hidden";
           if (document.exitFullscreen) {
             document.exitFullscreen();
           } else if (document.msExitFullscreen) {
@@ -185,28 +185,19 @@ try {
     // Initialization function.
     // - set position watch function
     // - set animation function
-    function init() {
+    function initGeo() {
         try {
 
             // Set position watch function
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(
+                geoWatchPos = navigator.geolocation.watchPosition(
+                    //updateGeocode,
                     updatePosition,
                     handlePosError,
-                    posOptions
+                    config_posOptions
                 );
             } else { gpsInfo.innerHTML = "Geolocation is not supported by this browser." }
-
-            // flip context horizontally
-            if (mirrorHud) { 
-              ctx.scale(-1, 1);
-              ctx.translate(-w, 0);
-            };
-
-            updateGeocode();
-
-            // Set animation function
-            drawHud();
+            //updateGeocode();
 
         } catch(ex) {
             logStr = logStr + ex + "<br />";
@@ -214,186 +205,46 @@ try {
         };
     };
 
+    // updatePosition(posiiton) - get GPS data.
+    // Put the updated position info into a global variable, update vars
     // position.coords:
     //  .latitude .longitude
     //  .accuracy .altitude .altitudeAccuracy
     //  .heading
     //  .speed
     // position.timestamp
-    function updatePosition(position) { 
+    function updatePosition(position) {
+      try {
+        // Make position value global
         posObj = position;
-    };
 
-    function updateGeocode() {
-        try {
-          var latlng = {lat: posObj.coords.latitude, lng: posObj.coords.longitude};
-          geocoderObj.geocode({'location': latlng}, function(results, status) {
-            geocoderObj = results;
-            geocoderStatus = status;
-          });
-          setTimeout(updateGeocode(), 5000);
-        } catch(ex) {
-            logStr = logStr + "Geocoder Error " + ex.code  + ": " + ex.message + "<br />";
-            errorLog.innerHTML = logStr;
-        }
-    }
+        // Get the values from Position object
+        if( posObj === undefined ) {
+          posLat = -1;
+          posLon = -1;
+          posSpeed = -1;
+          posHeading = -1;
+          posAccuracy = -1;
+          posAltitude = -1;
+          posAltitudeAccuracy = -1;
+          posTimestamp = -1;
+        } else {
+          posLat = posObj.coords.latitude;
+          posLon = posObj.coords.longitude;
+          posSpeed = posObj.coords.speed * 2.236936292; // m/s to m/h
+          posHeading = posObj.coords.heading
+          posAccuracy = posObj.coords.accuracy;
+          posAltitude = posObj.coords.altitude;
+          posAltitudeAccuracy = posObj.coords.altitudeAccuracy;
+          posTimestamp = posObj.timestamp;
+        };
 
-    function handlePosError(ex) {
-        logStr = logStr + "Position Error " + ex.code  + ": " + ex.message + "<br />";
-        errorLog.innerHTML = logStr;
-    };
-        
-    // DEV
-    //posSpeed = 1;
-    //posHeading = 0;
-
-    function drawHud() {
-        try {
-            // Get the values from Position object
-            if( posObj === undefined ) {
-              var posLat = -1;
-              var posLon = -1;
-              var posSpeed = -1;
-              var posHeading = -1;
-              var posAccuracy = -1;
-              var posAltitude = -1;
-              var posAltitudeAccuracy = -1;
-              var posTimestamp = -1;
-            } else {
-              var posLat = posObj.coords.latitude;
-              var posLon = posObj.coords.longitude;
-              var posSpeed = posObj.coords.speed * 2.236936292; // m/s to m/h
-              var posHeading = posObj.coords.heading
-              var posAccuracy = posObj.coords.accuracy;
-              var posAltitude = posObj.coords.altitude;
-              var posAltitudeAccuracy = posObj.coords.altitudeAccuracy;
-              var posTimestamp = posObj.timestamp;
-            };
-            if (posSpeed <= 2) {posHeading = priorHeading} else {priorHeading = posHeading};
-            // calc values
-            // trip meter
-            if( priorLat !== -1 ) {
-              var distIncrement = getDistance( priorLat, priorLon, posLat, posLon );
-              tripMilesA += distIncrement;
-            }
-            priorLat = posLat;
-            priorLon = posLon;
-
-
-            // DEV
-            //posSpeed = 110;
-            //posSpeed = Math.sin(posHeading/(Math.PI*2))*45;
-            //posHeading += 0.5;
-            //posSpeed %= speedomax;
-            //posHeading = 12;
-
-
-            gpsInfo.innerHTML = "<br>Speed: " + posSpeed + "<br>Heading: " + posHeading + "<br>Accuracy: " + posAccuracy + "<br>Trip: " + tripMilesA;
-        
-            // Draw hud
-            //ctx.clearRect(0,0,w,h);
-            ctx.fillStyle = color[4];
-            ctx.fillRect(0,0,w,h);
-
-            // Speedo outer-circle
-            var needleAngle = scaa + ((scab-scaa)*(posSpeed/speedomax));
-            ctx.strokeStyle = color[1];
-            ctx.lineWidth = 20;
-            ctx.beginPath();
-            ctx.arc(scx, scy, scr, scaa, needleAngle);
-            ctx.stroke();
-            ctx.closePath();
-
-            /* dev - endAngle is not dependent on beginAngle.
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(scx, scy, scr-20, scaa, needleAngle);
-            ctx.stroke();
-            ctx.closePath();
-            */
-
-            // speedo needles \|/
-            ctx.strokeStyle = color[0];
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            // center
-            ctx.moveTo(
-              scx + ( -Math.sin( needleAngle-(Math.PI/2) ) * (scr-(scr*speedoneedlelength) ) ),
-              scy + ( Math.cos( needleAngle-(Math.PI/2) ) * (scr-(scr*speedoneedlelength) ) )
-            );
-            ctx.lineTo(
-              scx + ( -Math.sin( needleAngle-(Math.PI/2) ) * (scr+(scr*speedoneedlelength) ) ),
-              scy + ( Math.cos( needleAngle-(Math.PI/2) ) * (scr+(scr*speedoneedlelength) ) )
-            );
-            /* right
-            ctx.moveTo(
-              scx + ( -Math.sin( needleAngle-(Math.PI/2)+(5/speedomax) ) * (scr-(scr*speedoneedlelength*0.5) ) ),
-              scy + ( Math.cos( needleAngle-(Math.PI/2)+(5/speedomax) ) * (scr-(scr*speedoneedlelength*0.5) ) )
-            );
-            ctx.lineTo(
-              scx + ( -Math.sin( needleAngle-(Math.PI/2)+(5/speedomax) ) * (scr+(scr*speedoneedlelength*0.5) ) ),
-              scy + ( Math.cos( needleAngle-(Math.PI/2)+(5/speedomax) ) * (scr+(scr*speedoneedlelength*0.5) ) )
-            );
-            // left
-            ctx.moveTo(
-              scx + ( -Math.sin( needleAngle-(Math.PI/2)-(5/speedomax) ) * (scr-(scr*speedoneedlelength*0.5) ) ),
-              scy + ( Math.cos( needleAngle-(Math.PI/2)-(5/speedomax) ) * (scr-(scr*speedoneedlelength*0.5) ) )
-            );
-            ctx.lineTo(
-              scx + ( -Math.sin( needleAngle-(Math.PI/2)-(5/speedomax) ) * (scr+(scr*speedoneedlelength*0.5) ) ),
-              scy + ( Math.cos( needleAngle-(Math.PI/2)-(5/speedomax) ) * (scr+(scr*speedoneedlelength*0.5) ) )
-            );*/
-            ctx.stroke();
-            ctx.closePath();
-            
-            // compass ring
-            compassAngle = (posHeading*(Math.PI/180));
-            // marker arc
-              ctx.strokeStyle = color[1];
-              ctx.lineWidth = hudCompass.arcThickness;
-              ctx.beginPath();
-              ctx.arc( scx, scy, scr*hudCompass.radius, -compassAngle-(Math.PI/2)-(Math.PI*2*hudCompass.arcSize), -compassAngle-(Math.PI/2)+(Math.PI*2*hudCompass.arcSize) );
-              ctx.stroke();
-              ctx.closePath();
-            // marker center
-              ctx.strokeStyle = color[0];
-              ctx.lineWidth = hudCompass.centerThickness;
-              ctx.beginPath();
-              ctx.arc( scx, scy, scr*hudCompass.radius, -compassAngle-(Math.PI/2)-(Math.PI*2*hudCompass.centerSize), -compassAngle-(Math.PI/2)+(Math.PI*2*hudCompass.centerSize) );
-              ctx.stroke();
-              ctx.closePath();
-            
-            // Top Info - digital speed
-            ctx.fillStyle = color[0];
-            ctx.font = textSizeA.toString() + "px Josefin Sans";
-            spdWidth = ctx.measureText(Math.round(posSpeed)).width;
-            ctx.beginPath();
-            ctx.fillText(Math.round(posSpeed).toString(), scx-(spdWidth*0.90), scy);
-            ctx.font = textSizeC.toString() + "px Josefin Sans";
-            ctx.fillText(" mph", scx+(scr*0.10), scy);
-            ctx.closePath();
-
-            // Bottom info - simple compass
-            var posDirection = "---";
-            /*
-            N   348.75 -  11.25
-            NNE  11.25 -  33.75
-            NE   33.75 -  56.25
-            ENE  56.25 -  78.75
-            E    78.75 - 101.25
-            ESE 101.25 - 123.75
-            SE  123.75 - 146.25
-            SSE 146.25 - 168.75
-            S   168.75 - 191.25
-            SSW 191.25 - 213.75
-            SW  213.75 - 236.25
-            WSW 236.25 - 258.75
-            W   258.75 - 281.25
-            WNW 281.25 - 303.75
-            NW  303.75 - 326.25
-            NNW 326.25 - 348.75
-            */
-            if (posHeading > 348.75 || posHeading <=  11.25) {posDirection = "N"  }
+        // Make formatted strings
+            // Speed
+            if (posSpeed.toString() == "NaN") {speedStr = "---"} else {speedStr = Math.round(posSpeed).toString()};
+            // Direction
+            if ( posHeading === undefined ) {posDirection = "---" }
+              else if (posHeading > 348.75 || posHeading <=  11.25) {posDirection = "N"  }
               else if (posHeading >  11.25 && posHeading <=  33.75) {posDirection = "NNE"}
               else if (posHeading >  33.75 && posHeading <=  56.25) {posDirection = "NE" }
               else if (posHeading >  56.25 && posHeading <=  78.75) {posDirection = "ENE"}
@@ -410,38 +261,235 @@ try {
               else if (posHeading > 303.75 && posHeading <= 326.25) {posDirection = "NW" }
               else if (posHeading > 326.25 && posHeading <= 348.75) {posDirection = "NNW"}
             ;
-            ctx.fillStyle = color[0];
-            ctx.font = textSizeB.toString() + "px Josefin Sans";
-            infoBwidth = ctx.measureText(posDirection).width;
-            infoBheight = ctx.measureText(posDirection).height;
-            ctx.beginPath();
-            ctx.fillText(posDirection, scx-(infoBwidth*0.5), scy+textSizeB+(h*0.025));
-            ctx.closePath();
+            if (posSpeed <= 2) {posHeading = priorHeading} else {priorHeading = posHeading};
 
-            // Show geocoder info
-            if (geocoderStatus === google.maps.GeocoderStatus.OK) {
-              if (geocoderObj[1]) {
-                logStr += geocoderObj[1];
-                errorLog.innerHTML = logStr;
-              }/* else {
-                logStr += "No result";
-                errorLog.innerHTML = logStr;
+
+      } catch(ex) {
+        logStr = logStr + "Position Error " + ex.code  + ": " + ex.message + "<br />";
+        errorLog.innerHTML = logStr;
+      }
+    }
+
+    // updateGeocode() - send latLng pair, get place objects (place, street, city, state, etc)
+    // &&& Update to put all resultsObjects in formatted, easily readable object, then pull the needed strings from that.
+    function updateGeocode() {
+        try {
+          var i;
+          var j;
+
+          var latlng = {lat: posObj.coords.latitude, lng: posObj.coords.longitude};
+          geocoderObj.geocode({'location': latlng}, function(results, status) {
+            // Set results to global vars
+            geocoderResultsObj = results;
+            geocoderStatus = status;
+
+            // Get the values from geocoder object
+            geoStreetName = "";
+            geoNeighborhoodName = "";
+            geoCityName = "";
+            geoCountyName = "";
+            geoStateAbbrev = "";
+            geoZipCode = "";
+            sub1Str = "---";
+            sub2Str = "---";
+            if( geocoderResultsObj !== undefined && geocoderResultsObj !== null ) {
+              for (i=0; i<geocoderResultsObj.length; i++) {
+
+                // Get street name, neighborhood name, city name from street_address obj
+                if ( geocoderResultsObj[i].types[0] == "street_address"  || geocoderResultsObj[i].types[0] == "route" ) {
+                  for( j=0; j<geocoderResultsObj[i].address_components.length; j++ ) {
+                    // Street name
+                    if( geocoderResultsObj[i].address_components[j].types[0] == "route" ) {
+                      geoStreetName = geocoderResultsObj[i].address_components[j].long_name;
+                    }
+                    // Neighborhood name
+                    if( geoNeighborhoodName == "" && ( geocoderResultsObj[i].address_components[j].types[0] == "neighborhood" || geocoderResultsObj[i].address_components[j].types[0] == "administrative_area_level_3" ) ) {
+                      geoNeighborhoodName = geocoderResultsObj[i].address_components[j].long_name;
+                    }
+                    // City name
+                    if( geocoderResultsObj[i].address_components[j].types[0] == "locality" ) {
+                      geoCityName = geocoderResultsObj[i].address_components[j].long_name;
+                    }
+                  }
+                } // end of Get street name
               }
-            } else {
-              logStr += "Geocoder failed: " + geocoderStatus;
-              errorLog.innerHTML = logStr;*/
-            }
-        
-            // DEV: Draw border around canvas
-            /*ctx.strokeStyle = color[0];
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.strokeRect(0,0,w,h);
-            //ctx.strokePath();
-            ctx.closePath();*/
+              
+              sub1Str = geoStreetName;
+              if ( geoNeighborhoodName != "" && geoCityName != "" ) {
+                sub2Str = geoNeighborhoodName + ", " + geoCityName;
 
-            //window.requestAnimationFrame(drawHud);
-fTimeout = setTimeout(drawHud, drawRefreshRate);
+              } else {
+                sub2Str = geoNeighborhoodName + geoCityName;
+              }
+            };
+          });
+
+        } catch(ex) {
+            logStr = logStr + "Geocoder Error " + ex.code  + ": " + ex.message + "<br />i=" + i + " j=" + j + "<br />";
+            errorLog.innerHTML = logStr;
+        }
+    }
+
+    function handlePosError(ex) {
+        logStr = logStr + "Position Error " + ex.code  + ": " + ex.message + "<br />";
+        errorLog.innerHTML = logStr;
+    };
+    
+
+    // Get info on n random positions (&&&Update updateGeocode() first.)
+    function getRandomPositions(nPos) {
+      /*Top-Right (NE):    41.749636,  -71.006678
+        Bottom-Right (SE): 30.556941,  -81.737882
+        Bottom-Left (SW):  32.701951, -117.150259
+        Top-Left (NW):     48.979818, -123.071243*/
+      var i, j;
+      var lng, lat;
+      var latlng;
+      var lngMax =   48.979818;
+      var lngMin =   30.556941;
+      var latMax =  -71.006678;
+      var latMin = -123.071243;
+      var randomGeocoderResultsObj;
+      var randomGeocoderStatusObj;
+      randomSetOfGeocoderResultsObj = [];
+      randomSetOfGeocoderStatusObj = [];
+
+      for (i=0; i<nPos; i++) {
+        lng = lngMin + ( Math.random() * (lngMax-lngMin) );
+        lat = latMin + ( Math.random() * (latMax-latMin) );
+
+        logStr += "lng: " + lng + "  lat: " + lat + "<br />";
+        errorLog.innerHTML = logStr;
+
+        latlng = {lat: lat, lng: lng};
+        geocoderObj.geocode({'location': latlng}, function(results, status) {
+          randomSetOfGeocoderResultsObj[i] = results;
+          randomSetOfGeocoderStatusObj[i] = status;
+        });
+      }
+    }
+
+
+    function draw() {
+      try {
+
+        // *** Moved getting the obj values to updateGeocode() ***
+
+        // calc values
+        // trip meter
+        if( priorLat !== -1 ) {
+          var distIncrement = getDistance( priorLat, priorLon, posLat, posLon );
+          tripMilesA += distIncrement;
+        }
+        priorLat = posLat;
+        priorLon = posLon;
+
+        // DEV
+        //posSpeed = 45;
+        //posSpeed = Math.sin(posHeading/(Math.PI*2))*45;
+        //posHeading += 0.5;
+        //posSpeed %= config_speedomax;
+        //posHeading = 12;
+
+        gpsInfo.innerHTML = "<br>Speed: " + posSpeed + "<br>Heading: " + posHeading + "<br>Accuracy: " + posAccuracy + "<br>Trip: " + tripMilesA;
+    
+        // Draw hud
+        //ctx.clearRect(0,0,w,h);
+        ctx.fillStyle = config_colorScheme[0];
+        ctx.fillRect(0,0,w,h);
+
+        // Speedo outer-circle
+        if (posSpeed >= 0) {var needleAngle = scaa + ((scab-scaa)*(posSpeed/config_speedomax))} else {var needleAngle = scaa};
+        ctx.strokeStyle = config_colorScheme[3];
+        ctx.lineWidth = 20;
+        ctx.beginPath();
+        ctx.arc(scx, scy, scr, scaa, needleAngle);
+        ctx.stroke();
+        ctx.closePath();
+
+        // speedo needles \|/
+        ctx.strokeStyle = config_colorScheme[1];
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // center
+        ctx.moveTo(
+          scx + ( -Math.sin( needleAngle-(Math.PI/2) ) * (scr-(scr*config_speedoneedlelength) ) ),
+          scy + ( Math.cos( needleAngle-(Math.PI/2) ) * (scr-(scr*config_speedoneedlelength) ) )
+        );
+        ctx.lineTo(
+          scx + ( -Math.sin( needleAngle-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength) ) ),
+          scy + ( Math.cos( needleAngle-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength) ) )
+        );
+        ctx.stroke();
+        ctx.closePath();
+        
+        // compass ring
+        compassAngle = (posHeading*(Math.PI/180));
+        // marker arc
+          ctx.strokeStyle = config_colorScheme[3];
+          ctx.lineWidth = config_hudCompass.arcThickness;
+          ctx.beginPath();
+          ctx.arc( scx, scy, scr*config_hudCompass.radius, -compassAngle-(Math.PI/2)-(Math.PI*2*config_hudCompass.arcSize), -compassAngle-(Math.PI/2)+(Math.PI*2*config_hudCompass.arcSize) );
+          ctx.stroke();
+          ctx.closePath();
+        // marker center
+          ctx.strokeStyle = config_colorScheme[1];
+          ctx.lineWidth = config_hudCompass.centerThickness;
+          ctx.beginPath();
+          ctx.arc( scx, scy, scr*config_hudCompass.radius, -compassAngle-(Math.PI/2)-(Math.PI*2*config_hudCompass.centerSize), -compassAngle-(Math.PI/2)+(Math.PI*2*config_hudCompass.centerSize) );
+          ctx.stroke();
+          ctx.closePath();
+        
+        // Top Info - digital speed
+        ctx.fillStyle = config_colorScheme[1];
+        ctx.font = textSizeA.toString() + "px " + config_textFontA;
+        var spdWidth = ctx.measureText(speedStr).width;
+        ctx.beginPath();
+        ctx.fillText(speedStr, scx-(spdWidth*0.90), scy);
+        ctx.font = textSizeC.toString() + "px " + config_textFontC;
+        ctx.fillText(" mph", scx+(scr*0.10), scy);
+        ctx.closePath();
+
+        // Bottom info - simple compass
+        ctx.fillStyle = config_colorScheme[1];
+        ctx.font = textSizeB.toString() + "px " + config_textFontB;
+        infoBwidth = ctx.measureText(posDirection).width;
+        infoBheight = ctx.measureText(posDirection).height;
+        ctx.beginPath();
+        ctx.fillText(posDirection, scx-(infoBwidth*0.5), scy+textSizeB+(h*0.025));
+        ctx.closePath();
+
+        // Sub Info: divider
+        var divX = w*0.25;
+        var divW = w*0.50;
+        var grd = ctx.createLinearGradient(divX, 0, divX+divW, 0);
+        grd.addColorStop(0, config_colorScheme[0]);
+        grd.addColorStop(0.5, config_colorScheme[3]);
+        grd.addColorStop(1, config_colorScheme[0]);
+        ctx.fillStyle = grd;
+        ctx.fillRect(divX, (h*config_subInfoAy)-(h*config_subInfoLineHeight), divW, h*0.005);
+
+        // Sub Info: street name; neighborhood, city
+        ctx.beginPath();
+        ctx.fillStyle = config_colorScheme[1];
+        ctx.font = subInfoASize.toString() + "px " + config_subInfoAFont;
+        var l1Width = ctx.measureText(sub1Str).width;
+        var l1Height = ctx.measureText(sub1Str).height;
+        ctx.fillText(sub1Str, (w*config_subInfoAx)-(l1Width*0.5), (h*config_subInfoAy));
+        ctx.closePath();
+
+        ctx.beginPath();
+        ctx.fillStyle = config_colorScheme[2];
+        var l2Width = ctx.measureText(sub2Str).width;
+        var l2Height = ctx.measureText(sub2Str).height;
+        ctx.fillText(
+          sub2Str, 
+          (w*config_subInfoAx)-(l2Width*0.5), 
+          (h*config_subInfoAy)+(h*config_subInfoLineHeight)
+        );
+        //logStr = logStr + subInfoASize + ", " + textSizeA + "<br />";
+        //errorLog.innerHTML = logStr;
+        ctx.closePath();
 
       } catch(ex) {
         logStr = logStr + " " + ex;
@@ -449,12 +497,48 @@ fTimeout = setTimeout(drawHud, drawRefreshRate);
       }
     };
 
-    function handlePosError(ex) {
-        logStr = logStr + "Position Error " + ex.code  + ": " + ex.message + "<br />";
-        errorLog.innerHTML = logStr;
-    };
 
-    init();
+    // Iterator function.  Run the repeating functions at their respective run rates.
+    var t;  // current time
+    var t0 = Date.now(); // initial time ("t naught")
+    var tStamp_updateGeocode;
+    var nRuns_updateGeocode;
+    var tStamp_draw;
+    var nRuns_draw;
+    
+    function tickScheduler() {
+      t = Date.now();
+
+      // schedule updateGeocode()
+
+      requestAnimationFrame(tickScheduler);
+    }
+
+
+    // Main function
+    var interval_updateGeocode;
+    var interval_draw;
+    function main() {
+      // Initialize
+      initDisplay();
+      initGeo();
+
+      interval_updateGeocode = setInterval(
+        function() {updateGeocode()},
+        config_geocodeRefreshRate
+      );
+
+      interval_draw = setInterval( 
+        function() {draw()},
+        config_fps
+      );
+
+      window.addEventListener("orientationchange", initDisplay);
+      window.onresize = initDisplay;
+      //fTimeout = setTimeout(draw, config_fps);
+    };
+    main();
+    
 
 } catch(ex) {
     logStr = logStr + ex + "<br />";

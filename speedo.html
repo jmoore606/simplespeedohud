@@ -1,8 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <link href='https://fonts.googleapis.com/css?family=Josefin+Sans' rel='stylesheet' type='text/css'>
+  <link href="https://fonts.googleapis.com/css?family=Josefin+Sans" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="theme-color" content="#000000">
   <style>
+  body {
+    margin: 0;
+  }
   p {
     border-style: solid;
     border-width: 1px;
@@ -10,6 +15,7 @@
   canvas {
     border-style: solid;
     border-width: 1px;
+    font-family: 'Josefin Sans', sans-serif;
   }
   button {
     width: 300px;
@@ -19,15 +25,16 @@
 </head>
 <body>
 
+<div id="speedoCanvasContainer" style="visibility: visible"></div>
+
 <p id="demo">GPS data here.</p>
 <button onClick="toggleFullscreen()" width="100px" height="100px">Fullscreen</button>
 <br>
 <!--canvas id="canvas1" width="700px" height="400px">ns =(</canvas -->
-<div id="speedoCanvasContainer" style="visibility: hidden"></div>
 <p id="errorLog"></p>
 
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAvPpOeQu4Eyy93Rtgb_afS7Hfh-Q8DXl0"></script>
-<script src="20160119 speedo.js"></script>
+<script src="speedo.js"></script>
 
 </body>
 </html>
