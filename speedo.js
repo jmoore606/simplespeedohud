@@ -523,10 +523,10 @@ try {
       initDisplay();
       initGeo();
 
-      interval_updateGeocode = setInterval(
+      /*interval_updateGeocode = setInterval(
         function() {updateGeocode()},
         config_geocodeRefreshRate
-      );
+      );*/
 
       interval_draw = setInterval( 
         function() {draw()},
