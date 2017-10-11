@@ -1,6 +1,8 @@
 // Jeff Moore, 1/19/2016
 // Speedometer.
 
+//"use strict";
+
 // Configuration variables
 var config_mirrorHud = 0;  // show mirror-image
 var config_fps = 100;
@@ -69,9 +71,12 @@ var prevTouchTime = -1;
 // Prepare the elements and variables
 // HTML
 var speedoDiv = document.getElementById("speedoCanvasContainer");
-speedoDiv.innerHTML = "<canvas id=\"canvas1\" width=\"" + screen.width + "px\" height=\"" + screen.height + "px\">ns =(</canvas>"
-var c1 = document.getElementById("canvas1");
-var ctx = c1.getContext("2d");
+speedoDiv.innerHTML += "<canvas id=\"canvas1\" width=\"" + screen.width + "px\" height=\"" + screen.height + "px\">ns =(</canvas>";
+speedoDiv.innerHTML += "<canvas id=\"canvas2\" width=\"" + screen.width + "px\" height=\"" + screen.height + "px\">ns =(</canvas>";
+var c1 = document.getElementById("canvas1"); // for HUD info display
+var c2 = document.getElementById("canvas2"); // for HUD controls display
+var ctx1 = c1.getContext("2d");
+var ctx2 = c2.getContext("2d");
 var viewWidth = window.innerWidth;
 var viewHeight = window.innerHeight;
 // GPS
@@ -84,9 +89,9 @@ var priorLat = -1;
 var priorLon = -1;
 var priorHeading = -1;
 var tripMilesA = 0; // learn to save data then make more relevant trips
-var posLat=posLon=posSpeed=posHeading=posAccuracy=posAltitude=posAltitudeAccuracy=posTimeStamp = -1;
-var geoStreetName=geoNeighborhoodName=geoCityName=geoCountyName=geoStateAbbrev=geoZipCode = "";
-var speedStr=posDirection=sub1Str=sub2Str = "---";
+var posLat, posLon, posSpeed, posHeading, posAccuracy, posAltitude, posAltitudeAccuracy, posTimeStamp = -1;
+var geoStreetName, geoNeighborhoodName, geoCityName, geoCountyName, geoStateAbbrev, geoZipCode = "";
+var speedStr, posDirection, sub1Str, sub2Str = "---";
 
 
 try {
@@ -118,8 +123,8 @@ try {
       viewHeight = window.innerHeight;
       c1.width = viewWidth;
       c1.height = viewHeight;
-      ctx.width = viewWidth;
-      ctx.height = viewHeight;
+      ctx1.width = viewWidth;
+      ctx1.height = viewHeight;
 
       // calc values
       w = c1.width;
@@ -136,8 +141,8 @@ try {
 
       // flip context horizontally
       if (config_mirrorHud) { 
-        ctx.scale(-1, 1);
-        ctx.translate(-w, 0);
+        ctx1.scale(-1, 1);
+        ctx1.translate(-w, 0);
       };
     }
     
@@ -394,102 +399,102 @@ try {
         gpsInfo.innerHTML = "<br>Speed: " + posSpeed + "<br>Heading: " + posHeading + "<br>Accuracy: " + posAccuracy + "<br>Trip: " + tripMilesA;
     
         // Draw hud
-        //ctx.clearRect(0,0,w,h);
-        ctx.fillStyle = config_colorScheme[0];
-        ctx.fillRect(0,0,w,h);
+        //ctx1.clearRect(0,0,w,h);
+        ctx1.fillStyle = config_colorScheme[0];
+        ctx1.fillRect(0,0,w,h);
 
         // Speedo outer-circle
         if (posSpeed >= 0) {var needleAngle = scaa + ((scab-scaa)*(posSpeed/config_speedomax))} else {var needleAngle = scaa};
-        ctx.strokeStyle = config_colorScheme[3];
-        ctx.lineWidth = 20;
-        ctx.beginPath();
-        ctx.arc(scx, scy, scr, scaa, needleAngle);
-        ctx.stroke();
-        ctx.closePath();
+        ctx1.strokeStyle = config_colorScheme[3];
+        ctx1.lineWidth = 20;
+        ctx1.beginPath();
+        ctx1.arc(scx, scy, scr, scaa, needleAngle);
+        ctx1.stroke();
+        ctx1.closePath();
 
         // speedo needles \|/
-        ctx.strokeStyle = config_colorScheme[1];
-        ctx.lineWidth = 2;
-        ctx.beginPath();
+        ctx1.strokeStyle = config_colorScheme[1];
+        ctx1.lineWidth = 2;
+        ctx1.beginPath();
         // center
-        ctx.moveTo(
+        ctx1.moveTo(
           scx + ( -Math.sin( needleAngle-(Math.PI/2) ) * (scr-(scr*config_speedoneedlelength) ) ),
           scy + ( Math.cos( needleAngle-(Math.PI/2) ) * (scr-(scr*config_speedoneedlelength) ) )
         );
-        ctx.lineTo(
+        ctx1.lineTo(
           scx + ( -Math.sin( needleAngle-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength) ) ),
           scy + ( Math.cos( needleAngle-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength) ) )
         );
-        ctx.stroke();
-        ctx.closePath();
+        ctx1.stroke();
+        ctx1.closePath();
         
         // compass ring
         compassAngle = (posHeading*(Math.PI/180));
         // marker arc
-          ctx.strokeStyle = config_colorScheme[3];
-          ctx.lineWidth = config_hudCompass.arcThickness;
-          ctx.beginPath();
-          ctx.arc( scx, scy, scr*config_hudCompass.radius, -compassAngle-(Math.PI/2)-(Math.PI*2*config_hudCompass.arcSize), -compassAngle-(Math.PI/2)+(Math.PI*2*config_hudCompass.arcSize) );
-          ctx.stroke();
-          ctx.closePath();
+          ctx1.strokeStyle = config_colorScheme[3];
+          ctx1.lineWidth = config_hudCompass.arcThickness;
+          ctx1.beginPath();
+          ctx1.arc( scx, scy, scr*config_hudCompass.radius, -compassAngle-(Math.PI/2)-(Math.PI*2*config_hudCompass.arcSize), -compassAngle-(Math.PI/2)+(Math.PI*2*config_hudCompass.arcSize) );
+          ctx1.stroke();
+          ctx1.closePath();
         // marker center
-          ctx.strokeStyle = config_colorScheme[1];
-          ctx.lineWidth = config_hudCompass.centerThickness;
-          ctx.beginPath();
-          ctx.arc( scx, scy, scr*config_hudCompass.radius, -compassAngle-(Math.PI/2)-(Math.PI*2*config_hudCompass.centerSize), -compassAngle-(Math.PI/2)+(Math.PI*2*config_hudCompass.centerSize) );
-          ctx.stroke();
-          ctx.closePath();
+          ctx1.strokeStyle = config_colorScheme[1];
+          ctx1.lineWidth = config_hudCompass.centerThickness;
+          ctx1.beginPath();
+          ctx1.arc( scx, scy, scr*config_hudCompass.radius, -compassAngle-(Math.PI/2)-(Math.PI*2*config_hudCompass.centerSize), -compassAngle-(Math.PI/2)+(Math.PI*2*config_hudCompass.centerSize) );
+          ctx1.stroke();
+          ctx1.closePath();
         
         // Top Info - digital speed
-        ctx.fillStyle = config_colorScheme[1];
-        ctx.font = textSizeA.toString() + "px " + config_textFontA;
-        var spdWidth = ctx.measureText(speedStr).width;
-        ctx.beginPath();
-        ctx.fillText(speedStr, scx-(spdWidth*0.90), scy);
-        ctx.font = textSizeC.toString() + "px " + config_textFontC;
-        ctx.fillText(" mph", scx+(scr*0.10), scy);
-        ctx.closePath();
+        ctx1.fillStyle = config_colorScheme[1];
+        ctx1.font = textSizeA.toString() + "px " + config_textFontA;
+        var spdWidth = ctx1.measureText(speedStr).width;
+        ctx1.beginPath();
+        ctx1.fillText(speedStr, scx-(spdWidth*0.90), scy);
+        ctx1.font = textSizeC.toString() + "px " + config_textFontC;
+        ctx1.fillText(" mph", scx+(scr*0.10), scy);
+        ctx1.closePath();
 
         // Bottom info - simple compass
-        ctx.fillStyle = config_colorScheme[1];
-        ctx.font = textSizeB.toString() + "px " + config_textFontB;
-        infoBwidth = ctx.measureText(posDirection).width;
-        infoBheight = ctx.measureText(posDirection).height;
-        ctx.beginPath();
-        ctx.fillText(posDirection, scx-(infoBwidth*0.5), scy+textSizeB+(h*0.025));
-        ctx.closePath();
+        ctx1.fillStyle = config_colorScheme[1];
+        ctx1.font = textSizeB.toString() + "px " + config_textFontB;
+        infoBwidth = ctx1.measureText(posDirection).width;
+        infoBheight = ctx1.measureText(posDirection).height;
+        ctx1.beginPath();
+        ctx1.fillText(posDirection, scx-(infoBwidth*0.5), scy+textSizeB+(h*0.025));
+        ctx1.closePath();
 
         // Sub Info: divider
         var divX = w*0.25;
         var divW = w*0.50;
-        var grd = ctx.createLinearGradient(divX, 0, divX+divW, 0);
+        var grd = ctx1.createLinearGradient(divX, 0, divX+divW, 0);
         grd.addColorStop(0, config_colorScheme[0]);
         grd.addColorStop(0.5, config_colorScheme[3]);
         grd.addColorStop(1, config_colorScheme[0]);
-        ctx.fillStyle = grd;
-        ctx.fillRect(divX, (h*config_subInfoAy)-(h*config_subInfoLineHeight), divW, h*0.005);
+        ctx1.fillStyle = grd;
+        ctx1.fillRect(divX, (h*config_subInfoAy)-(h*config_subInfoLineHeight), divW, h*0.005);
 
         // Sub Info: street name; neighborhood, city
-        ctx.beginPath();
-        ctx.fillStyle = config_colorScheme[1];
-        ctx.font = subInfoASize.toString() + "px " + config_subInfoAFont;
-        var l1Width = ctx.measureText(sub1Str).width;
-        var l1Height = ctx.measureText(sub1Str).height;
-        ctx.fillText(sub1Str, (w*config_subInfoAx)-(l1Width*0.5), (h*config_subInfoAy));
-        ctx.closePath();
+        ctx1.beginPath();
+        ctx1.fillStyle = config_colorScheme[1];
+        ctx1.font = subInfoASize.toString() + "px " + config_subInfoAFont;
+        var l1Width = ctx1.measureText(sub1Str).width;
+        var l1Height = ctx1.measureText(sub1Str).height;
+        ctx1.fillText(sub1Str, (w*config_subInfoAx)-(l1Width*0.5), (h*config_subInfoAy));
+        ctx1.closePath();
 
-        ctx.beginPath();
-        ctx.fillStyle = config_colorScheme[2];
-        var l2Width = ctx.measureText(sub2Str).width;
-        var l2Height = ctx.measureText(sub2Str).height;
-        ctx.fillText(
+        ctx1.beginPath();
+        ctx1.fillStyle = config_colorScheme[2];
+        var l2Width = ctx1.measureText(sub2Str).width;
+        var l2Height = ctx1.measureText(sub2Str).height;
+        ctx1.fillText(
           sub2Str, 
           (w*config_subInfoAx)-(l2Width*0.5), 
           (h*config_subInfoAy)+(h*config_subInfoLineHeight)
         );
         //logStr = logStr + subInfoASize + ", " + textSizeA + "<br />";
         //errorLog.innerHTML = logStr;
-        ctx.closePath();
+        ctx1.closePath();
 
       } catch(ex) {
         logStr = logStr + " " + ex;
