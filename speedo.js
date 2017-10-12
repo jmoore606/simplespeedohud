@@ -154,6 +154,7 @@ try {
 
       // Log the values
       logStr = logStr + "window.innerWidth = " + window.innerWidth + "<br>window.innerHeight = " + window.innerHeight
+                      + "<br>window.outerWidth = " + window.outerWidth + "<br>window.outerHeight = " + window.outerHeight
                       + "<br>screen.width = " + screen.width + "<br>screen.height = " + screen.height + "<br><br>";
       errorLog.innerHTML = logStr;
     }
