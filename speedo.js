@@ -22,7 +22,7 @@ var config_speedocircab = 0.15;// endangle
 var config_speedocircthickness = 0.1;  // percent of circle radius
 var config_speedoinnercirc = 0.8; // info circle inside the speedo
 var config_speedoneedlelength = 0.40; // length of the needle, in percent-of-radius. \|/
-var config_speedoneedlewidtha = 0.0002; // width of the inner needle, in percent-of-radius. \|/
+var config_speedoneedlewidtha = 0.00015; // width of the inner needle, in percent-of-radius. \|/
 var config_speedoneedlewidthb = 0.00003; // width of the outer needle, in percent-of-radius. \|/
 var config_speedoneedleroffset = -0.300; // offset from center, in percent-of-radius. pos-outward, neg-inward.
 var config_speedomax = 120; // mph
@@ -45,6 +45,7 @@ var config_colorScheme = [
   "#661100", // main color 2 - speed arc
   "#CC1100", // sub color 1
   "#992211", // sub color 2
+  "#993300", // edge color
 ];
 
 /*var config_colorScheme = [
@@ -410,14 +411,22 @@ try {
         ctx1.fillStyle = config_colorScheme[0];
         ctx1.fillRect(0,0,w,h);
 
-        // Speedo outer-circle
+        // Speedo outer-circle (current speed)
         if (posSpeed >= 0) {var needleAngle = scaa + ((scab-scaa)*(posSpeed/config_speedomax))} else {var needleAngle = scaa};
         ctx1.strokeStyle = config_colorScheme[2];
-        ctx1.lineWidth = 20;
+        ctx1.lineWidth = scr*config_speedocircthickness;
         ctx1.beginPath();
         ctx1.arc(scx, scy, scr, scaa, needleAngle);
         ctx1.stroke();
         ctx1.closePath();
+
+        // Speedo outer-circle range
+        ctx1.strokeStyle = config_colorScheme[5];
+        ctx1.lineWidth = 1;
+        ctx1.beginPath();
+        ctx1.arc(scx, scy, scr-(scr*config_speedocircthickness*0.5), scaa, scab);
+        ctx1.stroke();
+        ctx1.closePath();        
 
         /* speedo needle |
         ctx1.strokeStyle = config_colorScheme[1];
