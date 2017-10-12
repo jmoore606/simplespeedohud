@@ -21,7 +21,10 @@ var config_speedocircaa = 0.35; // beginangle
 var config_speedocircab = 0.15;// endangle
 var config_speedocircthickness = 0.1;  // percent of circle radius
 var config_speedoinnercirc = 0.8; // info circle inside the speedo
-var config_speedoneedlelength = 0.15; // length of the needle, in percent-of-radius. \|/
+var config_speedoneedlelength = 0.40; // length of the needle, in percent-of-radius. \|/
+var config_speedoneedlewidtha = 0.0002; // width of the inner needle, in percent-of-radius. \|/
+var config_speedoneedlewidthb = 0.00001; // width of the outer needle, in percent-of-radius. \|/
+var config_speedoneedleroffset = -0.300; // offset from center, in percent-of-radius. pos-outward, neg-inward.
 var config_speedomax = 120; // mph
 var config_subInfoAx = 0.50; // can be street name, city name, etc
 var config_subInfoAy = 0.85;
@@ -39,8 +42,8 @@ var config_hudCompass = {
 var config_colorScheme = [
   "#000000", // background color
   "#FF5500", // main color 1 - shapes, lights
-  "#FF0000", // main color 2 - needle(s)
-  "#BB1100", // sub color 1
+  "#661100", // main color 2 - speed arc
+  "#CC1100", // sub color 1
   "#992211", // sub color 2
 ];
 
@@ -89,9 +92,12 @@ var priorLat = -1;
 var priorLon = -1;
 var priorHeading = -1;
 var tripMilesA = 0; // learn to save data then make more relevant trips
-var posLat, posLon, posSpeed, posHeading, posAccuracy, posAltitude, posAltitudeAccuracy, posTimeStamp = -1;
-var geoStreetName, geoNeighborhoodName, geoCityName, geoCountyName, geoStateAbbrev, geoZipCode = "";
-var speedStr, posDirection, sub1Str, sub2Str = "---";
+var posLat, posLon, posSpeed, posHeading, posAccuracy, posAltitude, posAltitudeAccuracy, posTimeStamp;
+posLat = posLon = posSpeed = posHeading = posAccuracy = posAltitude = posAltitudeAccuracy = posTimeStamp = -1;
+var geoStreetName, geoNeighborhoodName, geoCityName, geoCountyName, geoStateAbbrev, geoZipCode;
+geoStreetName = geoNeighborhoodName = geoCityName = geoCountyName = geoStateAbbrev = geoZipCode = "";
+var speedStr, posDirection, sub1Str, sub2Str;
+speedStr = posDirection = sub1Str = sub2Str = "---";
 
 
 try {
@@ -196,7 +202,7 @@ try {
             // Set position watch function
             if (navigator.geolocation) {
                 geoWatchPos = navigator.geolocation.watchPosition(
-                    //updateGeocode,
+                    //updateGeocode,  // don't update geocode this rapidly! call update() elsewhere
                     updatePosition,
                     handlePosError,
                     config_posOptions
@@ -249,6 +255,7 @@ try {
             if (posSpeed.toString() == "NaN") {speedStr = "---"} else {speedStr = Math.round(posSpeed).toString()};
             // Direction
             if ( posHeading === undefined ) {posDirection = "---" }
+              else if (posHeading < 0) {posDirection = ""}
               else if (posHeading > 348.75 || posHeading <=  11.25) {posDirection = "N"  }
               else if (posHeading >  11.25 && posHeading <=  33.75) {posDirection = "NNE"}
               else if (posHeading >  33.75 && posHeading <=  56.25) {posDirection = "NE" }
@@ -405,14 +412,14 @@ try {
 
         // Speedo outer-circle
         if (posSpeed >= 0) {var needleAngle = scaa + ((scab-scaa)*(posSpeed/config_speedomax))} else {var needleAngle = scaa};
-        ctx1.strokeStyle = config_colorScheme[3];
+        ctx1.strokeStyle = config_colorScheme[2];
         ctx1.lineWidth = 20;
         ctx1.beginPath();
         ctx1.arc(scx, scy, scr, scaa, needleAngle);
         ctx1.stroke();
         ctx1.closePath();
 
-        // speedo needles \|/
+        /* speedo needle |
         ctx1.strokeStyle = config_colorScheme[1];
         ctx1.lineWidth = 2;
         ctx1.beginPath();
@@ -426,6 +433,49 @@ try {
           scy + ( Math.cos( needleAngle-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength) ) )
         );
         ctx1.stroke();
+        ctx1.closePath();
+        */
+
+        // speedo needle
+        ctx1.fillStyle = config_colorScheme[0];
+        ctx1.strokeStyle = config_colorScheme[1];
+        ctx1.lineWidth = 0.5;
+        ctx1.beginPath();
+        // draw the polygon clockwise from top-right (when pointing up)
+        ctx1.moveTo(
+          scx + ( -Math.sin( needleAngle+(scr*config_speedoneedlewidthb)-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) ),
+          scy + ( Math.cos( needleAngle+(scr*config_speedoneedlewidthb)-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) )
+        );
+        ctx1.lineTo(
+          scx + ( -Math.sin( needleAngle+(scr*config_speedoneedlewidtha)-(Math.PI/2) ) * (scr-(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) ),
+          scy + ( Math.cos( needleAngle+(scr*config_speedoneedlewidtha)-(Math.PI/2) ) * (scr-(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) )
+        );
+        ctx1.lineTo(
+          scx + ( -Math.sin( needleAngle-(scr*config_speedoneedlewidtha)-(Math.PI/2) ) * (scr-(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) ),
+          scy + ( Math.cos( needleAngle-(scr*config_speedoneedlewidtha)-(Math.PI/2) ) * (scr-(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) )
+        );
+        ctx1.lineTo(
+          scx + ( -Math.sin( needleAngle-(scr*config_speedoneedlewidthb)-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) ),
+          scy + ( Math.cos( needleAngle-(scr*config_speedoneedlewidthb)-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) )
+        );
+        ctx1.lineTo(
+          scx + ( -Math.sin( needleAngle+(scr*config_speedoneedlewidthb)-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) ),
+          scy + ( Math.cos( needleAngle+(scr*config_speedoneedlewidthb)-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) )
+        );
+
+        // make gradient. (x0, y0, x1, y1)
+        var grd = ctx1.createLinearGradient(
+          scx + ( -Math.sin( needleAngle-(Math.PI/2) ) * (scr-(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) ),
+          scy + ( Math.cos( needleAngle-(Math.PI/2) ) * (scr-(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) ),
+          scx + ( -Math.sin( needleAngle-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) ),
+          scy + ( Math.cos( needleAngle-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) ),
+        );
+        grd.addColorStop(0.00, config_colorScheme[0]);
+        grd.addColorStop(0.80, config_colorScheme[1]);
+        grd.addColorStop(1.00, config_colorScheme[1]);
+        ctx1.fillStyle = grd;
+        ctx1.fill();
+        //ctx1.stroke();
         ctx1.closePath();
         
         // compass ring
@@ -484,7 +534,7 @@ try {
         ctx1.closePath();
 
         ctx1.beginPath();
-        ctx1.fillStyle = config_colorScheme[2];
+        ctx1.fillStyle = config_colorScheme[3];
         var l2Width = ctx1.measureText(sub2Str).width;
         var l2Height = ctx1.measureText(sub2Str).height;
         ctx1.fillText(
@@ -528,10 +578,10 @@ try {
       initDisplay();
       initGeo();
 
-      /*interval_updateGeocode = setInterval(
+      interval_updateGeocode = setInterval(
         function() {updateGeocode()},
         config_geocodeRefreshRate
-      );*/
+      );
 
       interval_draw = setInterval( 
         function() {draw()},
