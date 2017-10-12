@@ -151,6 +151,11 @@ try {
         ctx1.scale(-1, 1);
         ctx1.translate(-w, 0);
       };
+
+      // Log the values
+      logStr = logStr + "window.innerWidth = " + window.innerWidth + "<br>window.innerHeight = " + window.innerHeight
+                      + "<br>screen.width = " + screen.width + "<br>screen.height = " + screen.height + "<br><br>";
+      errorLog.innerHTML = logStr;
     }
     
 
