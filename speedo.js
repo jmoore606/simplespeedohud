@@ -76,11 +76,11 @@ var prevTouchTime = -1;
 // HTML
 var speedoDiv = document.getElementById("speedoCanvasContainer");
 speedoDiv.innerHTML += "<canvas id=\"canvas1\" width=\"" + screen.width + "px\" height=\"" + screen.height + "px\">ns =(</canvas>";
-speedoDiv.innerHTML += "<canvas id=\"canvas2\" width=\"" + screen.width + "px\" height=\"" + screen.height + "px\">ns =(</canvas>";
+//speedoDiv.innerHTML += "<canvas id=\"canvas2\" width=\"" + screen.width + "px\" height=\"" + screen.height + "px\">ns =(</canvas>";
 var c1 = document.getElementById("canvas1"); // for HUD info display
-var c2 = document.getElementById("canvas2"); // for HUD controls display
+//var c2 = document.getElementById("canvas2"); // for HUD controls display
 var ctx1 = c1.getContext("2d");
-var ctx2 = c2.getContext("2d");
+//var ctx2 = c2.getContext("2d");
 var viewWidth = window.innerWidth;
 var viewHeight = window.innerHeight;
 // GPS
