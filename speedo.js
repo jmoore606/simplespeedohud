@@ -5,12 +5,13 @@
 
 // Configuration variables
 var config_mirrorHud = 0;  // show mirror-image
-var config_fps = 100;
+var config_fps = 3;
 var config_posRefreshRate = 100; // ms
 var config_geocodeRefreshRate = 15000; // ms
 var config_textSizeA = 0.20; // percent of screen space
 var config_textSizeB = 0.13;
 var config_textSizeC = 0.08;
+var config_textSizeD = 0.06;
 var config_textFontA = "Josefin Sans";
 var config_textFontB = "Josefin Sans";
 var config_textFontC = "Josefin Sans";
@@ -26,6 +27,12 @@ var config_speedoneedlewidtha = 0.00025; // width of the inner needle, in percen
 var config_speedoneedlewidthb = 0.00005; // width of the outer needle, in percent-of-radius. \|/
 var config_speedoneedleroffset = -0.300; // offset from center, in percent-of-radius. pos-outward, neg-inward.
 var config_speedomax = 120; // mph
+
+var config_datex = 0.95;
+var config_datey = 0.17;
+var config_timex = 0.95;
+var config_timey = 0.10;
+
 var config_subInfoAx = 0.50; // can be street name, city name, etc
 var config_subInfoAy = 0.85;
 var config_subInfoAFont = "Josefin Sans";
@@ -46,6 +53,7 @@ var config_colorScheme = [
   "#CC1100", // sub color 1
   "#992211", // sub color 2
   "#993300", // edge color
+  "#FF9900", // accent color - indicator lights
 ];
 
 /*var config_colorScheme = [
@@ -83,6 +91,9 @@ var ctx1 = c1.getContext("2d");
 //var ctx2 = c2.getContext("2d");
 var viewWidth = window.innerWidth;
 var viewHeight = window.innerHeight;
+// Date and Time
+var dateStr = "";
+var timeStr = "";
 // GPS
 var gpsInfo = document.getElementById("demo");
 var geocoderObj = new google.maps.Geocoder;
@@ -92,6 +103,7 @@ var posObj;
 var priorLat = -1;
 var priorLon = -1;
 var priorHeading = -1;
+var priorAltitude = -1;
 var tripMilesA = 0; // learn to save data then make more relevant trips
 var posLat, posLon, posSpeed, posHeading, posAccuracy, posAltitude, posAltitudeAccuracy, posTimeStamp;
 posLat = posLon = posSpeed = posHeading = posAccuracy = posAltitude = posAltitudeAccuracy = posTimeStamp = -1;
@@ -105,7 +117,7 @@ try {
 
     // Utility functions
     // Distance btw 2 points
-    function getDistance(lat1,lon1,lat2,lon2) {
+    function getDistance(lat1,lon1,lat2,lon2,unit="mi") {
       var R = 6371; // Radius of the earth in km
       var dLat = degToRad(lat2-lat1);  // degToRad below
       var dLon = degToRad(lon2-lon1); 
@@ -115,13 +127,32 @@ try {
         Math.sin(dLon/2) * Math.sin(dLon/2)
         ; 
       var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-      var d = R * c; // Distance in km
-      d *= 0.62137119;  // to mi
-      return d;
+      var dKm = R * c; // Distance in km
+      var dMi = dKm * 0.62137119;
+      var dM = dKm * 1000;
+
+      if (unit == "mi") {return dMi}
+      else if (unit == "km") {return dKm}
+      else if (unit == "m") {return dM}
+      else {return "error - specify valid unit type"}
+    }
+    
+    // Current pitch in direction of travel
+    // 1: current. 2: prior.
+    // &&& way too simple. Need to keep a history of lat/lon/elev for smoothness of functions like this
+    function getPitch(lat1, lon1, elev1, lat2, lon2, elev2, unit="deg") {
+      var run = getDistance(lat1, lon1, lat2, lon2, "m");
+      var rise = elev1 - elev2;
+      
+      // tan(angle) = opp/adj
+      // angle = tan^-1(opp/adj)
+      if (unit == "deg") { return radToDeg(Math.arctan(rise/run)) }
+      else if (unit == "rad") { return Math.arctan(rise/run) }
     }
 
     function degToRad(deg) { return deg * (Math.PI/180) };
-
+    function radToDeg(rad) { return rad * (180/Math.PI) };
+    
 
     // Initialize and size the canvas
     function initDisplay() {
@@ -139,6 +170,7 @@ try {
       textSizeA = Math.round( config_textSizeA*Math.min(w,h) );
       textSizeB = Math.round( config_textSizeB*Math.min(w,h) );
       textSizeC = Math.round( config_textSizeC*Math.min(w,h) );
+      textSizeD = Math.round( config_textSizeD*Math.min(w,h) );
       subInfoASize = Math.round( config_subInfoASize*Math.min(w,h) );
       scx = Math.floor(w*config_speedocircx);
       scy = Math.floor(h*config_speedocircy);
@@ -153,10 +185,11 @@ try {
       };
 
       // Log the values
-      logStr = logStr + "window.innerWidth = " + window.innerWidth + "<br>window.innerHeight = " + window.innerHeight
-                      + "<br>window.outerWidth = " + window.outerWidth + "<br>window.outerHeight = " + window.outerHeight
-                      + "<br>screen.width = " + screen.width + "<br>screen.height = " + screen.height + "<br><br>";
+      /*logStr = "window.innerWidth = " + window.innerWidth + "<br>window.innerHeight = " + window.innerHeight
+             + "<br>window.outerWidth = " + window.outerWidth + "<br>window.outerHeight = " + window.outerHeight
+             + "<br>screen.width = " + screen.width + "<br>screen.height = " + screen.height + "<br><br>";
       errorLog.innerHTML = logStr;
+      */
     }
     
 
@@ -199,6 +232,60 @@ try {
     //c1.addEventListener("touchstart", toggleFullscreen);
     //c1.addEventListener("mousedown", toggleFullscreen);
 
+
+    function updateTime() {
+      var dateObj = new Date();
+      var year = dateObj.getFullYear();
+      var month = dateObj.getMonth();
+      var date = dateObj.getDate();
+      var day = dateObj.getDay();
+      var hour = dateObj.getHours();
+      var min = dateObj.getMinutes();
+      var ampm = "am";
+      dateStr = "";
+      timeStr = "";
+
+      // Day of week
+      switch (day) {
+        case 0: dateStr += "Sun "; break;
+        case 1: dateStr += "Mon "; break;
+        case 2: dateStr += "Tue "; break;
+        case 3: dateStr += "Wed "; break;
+        case 4: dateStr += "Thu "; break;
+        case 5: dateStr += "Fri "; break;
+        case 6: dateStr += "Sat "; break;
+      }
+
+      // Month
+      /*switch (month) {
+        case  0: dateStr += "Jan "; break;
+        case  1: dateStr += "Feb "; break;
+        case  2: dateStr += "Mar "; break;
+        case  3: dateStr += "Apr "; break;
+        case  4: dateStr += "May "; break;
+        case  5: dateStr += "Jun "; break;
+        case  6: dateStr += "Jul "; break;
+        case  7: dateStr += "Aug "; break;
+        case  8: dateStr += "Sep "; break;
+        case  9: dateStr += "Oct "; break;
+        case 10: dateStr += "Nov "; break;
+        case 11: dateStr += "Dec "; break;
+        default: dateStr += "? ";   break;
+      }*/
+      dateStr += (month+1).toString() + "/";
+
+      // Day of month
+      //dateStr += date.toString() + ", " + year.toString();
+      dateStr += date.toString() + "/" + year.toString();
+
+      // Time
+      if (hour == 0) {hour = 12}
+      else if (hour > 12) {hour -= 12; ampm = "pm"}
+      timeStr = hour.toString() + ":";
+      if (min < 10) { timeStr += "0" + min.toString() }
+      else { timeStr += min.toString() }
+      //timeStr += ampm;
+    }
 
     // Initialization function.
     // - set position watch function
@@ -280,7 +367,7 @@ try {
               else if (posHeading > 303.75 && posHeading <= 326.25) {posDirection = "NW" }
               else if (posHeading > 326.25 && posHeading <= 348.75) {posDirection = "NNW"}
             ;
-            if (posSpeed <= 2) {posHeading = priorHeading} else {priorHeading = posHeading};
+            if (posSpeed <= 3) {posHeading = priorHeading} else {priorHeading = posHeading};
 
 
       } catch(ex) {
@@ -388,10 +475,9 @@ try {
       }
     }
 
-    var frameNum = 0;
+
     function draw() {
       try {
-        frameNum++;
 
         // *** Moved getting the obj values to updateGeocode() ***
 
@@ -403,6 +489,7 @@ try {
         }
         priorLat = posLat;
         priorLon = posLon;
+        priorAltitude = posAltitude;
 
         // DEV
         //posSpeed = 45;
@@ -417,6 +504,22 @@ try {
         //ctx1.clearRect(0,0,w,h);
         ctx1.fillStyle = config_colorScheme[0];
         ctx1.fillRect(0,0,w,h);
+
+        // Date and time
+        ctx1.beginPath(); // Date
+        ctx1.fillStyle = config_colorScheme[3];
+        ctx1.font = textSizeD.toString() + "px " + config_subInfoAFont;
+        var dateWidth = ctx1.measureText(dateStr).width;
+        var dateHeight = ctx1.measureText(dateStr).height;
+        ctx1.fillText(dateStr, (w*config_datex)-(dateWidth*1.0), (h*config_datey));
+        ctx1.closePath();
+        ctx1.beginPath(); // Time
+        ctx1.fillStyle = config_colorScheme[1];
+        ctx1.font = textSizeC.toString() + "px " + config_subInfoAFont;
+        var timeWidth = ctx1.measureText(timeStr).width;
+        var timeHeight = ctx1.measureText(timeStr).height;
+        ctx1.fillText(timeStr, (w*config_timex)-(timeWidth*1.0), (h*config_timey));
+        ctx1.closePath();
 
         // Speedo outer-circle (current speed)
         if (posSpeed >= 0) {var needleAngle = scaa + ((scab-scaa)*(posSpeed/config_speedomax))} else {var needleAngle = scaa};
@@ -434,23 +537,6 @@ try {
         ctx1.arc(scx, scy, scr-(scr*config_speedocircthickness*0.5), scaa, scab);
         ctx1.stroke();
         ctx1.closePath();        
-
-        /* speedo needle |
-        ctx1.strokeStyle = config_colorScheme[1];
-        ctx1.lineWidth = 2;
-        ctx1.beginPath();
-        // center
-        ctx1.moveTo(
-          scx + ( -Math.sin( needleAngle-(Math.PI/2) ) * (scr-(scr*config_speedoneedlelength) ) ),
-          scy + ( Math.cos( needleAngle-(Math.PI/2) ) * (scr-(scr*config_speedoneedlelength) ) )
-        );
-        ctx1.lineTo(
-          scx + ( -Math.sin( needleAngle-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength) ) ),
-          scy + ( Math.cos( needleAngle-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength) ) )
-        );
-        ctx1.stroke();
-        ctx1.closePath();
-        */
 
         // speedo needle
         ctx1.fillStyle = config_colorScheme[0];
@@ -487,8 +573,10 @@ try {
           scy + ( Math.cos( needleAngle-(Math.PI/2) ) * (scr+(scr*config_speedoneedlelength)+(scr*config_speedoneedleroffset) ) ),
         );
         grd.addColorStop(0.00, config_colorScheme[0]);
-        grd.addColorStop(0.80, config_colorScheme[1]);
-        grd.addColorStop(1.00, config_colorScheme[1]);
+        //grd.addColorStop(0.80, config_colorScheme[1]);
+        grd.addColorStop(1.00, config_colorScheme[6]);
+        //grd.addColorStop(1.00, config_colorScheme[1]);
+        //grd.addColorStop(1.00, config_colorScheme[6]);
         ctx1.fillStyle = grd;
         ctx1.fill();
         //ctx1.stroke();
@@ -589,10 +677,16 @@ try {
     // Main function
     var interval_updateGeocode;
     var interval_draw;
+    var interval_updateTime;
     function main() {
       // Initialize
       initDisplay();
       initGeo();
+
+      interval_updateTime = setInterval(
+        function() {updateTime()},
+        1000
+      );
 
       interval_updateGeocode = setInterval(
         function() {updateGeocode()},
@@ -601,7 +695,7 @@ try {
 
       interval_draw = setInterval( 
         function() {draw()},
-        config_fps
+        1000/config_fps
       );
 
       window.addEventListener("orientationchange", initDisplay);
