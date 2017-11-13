@@ -388,9 +388,10 @@ try {
       }
     }
 
-
+    var frameNum = 0;
     function draw() {
       try {
+        frameNum++;
 
         // *** Moved getting the obj values to updateGeocode() ***
 
