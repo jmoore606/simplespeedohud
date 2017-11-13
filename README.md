@@ -1,3 +1,3 @@
 # simplespeedohud
-Simple speedometer HUD for mobile devices
-<img src="Screen Shot 2017-05-28 at 6.30.32 PM.png" />
+Simple speedometer HUD for mobile devices.  Works in Chrome and Firefox web browsers.
+<img src="20171113 Screenshot.png" />
